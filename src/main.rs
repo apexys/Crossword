@@ -1,3 +1,5 @@
+#![feature(iterator_fold_self)]
+
 mod random_iter;
 use random_iter::RandomIter;
 use smallvec::{smallvec, SmallVec};
@@ -234,7 +236,7 @@ fn try_configuration<'a>(words: &[&'a [char]], words_start: usize, board: Board<
                     let wordconf = PlacedWord::new(current_word, x,y,dir);
                     if board.word_fits(wordconf){
                         let mut new_board =board.clone();
-                        new_board.placed_words.push(wordconf);
+                        new_board.add_word(wordconf);
                         if let Some(board) = try_configuration(words, words_start + 1, new_board){
                             return Some(board);
                         }
@@ -258,8 +260,18 @@ fn main() {
             .filter(|w|w.len() > 0)
             .map(|w| w.chars().collect::<Vec<_>>())
             .collect();
+        if uppercase.len() < 1{
+            eprintln!("No words in file!");
+            return;
+        }
+        let min_board_size = uppercase.iter().map(|s| s.len()).max().unwrap_or(1);
+        let mut charset: Vec<char> = uppercase.iter().flatten().copied().collect();
+        charset.sort_unstable();
+        charset.dedup();
+        eprintln!("Minimum board size: {}", min_board_size);
+        eprintln!("Charset length: {}", charset.len());
         let refs: Vec<&[char]> = uppercase.iter().map(|s| s.as_ref()).collect();
-        for boardsize in 1 .. 26{
+        for boardsize in min_board_size .. min_board_size * min_board_size{
             let board = Board::new(boardsize, boardsize);
             let result = try_configuration(&refs,0, board);
             if let Some(board) = result{
@@ -269,6 +281,8 @@ fn main() {
                     println!("{}", l);
                 }
                 eprintln!();
+                let words = uppercase.iter().map(|w| w.iter().collect::<String>()).fold_first(|prev, next| prev + ", " + &next).unwrap();
+                eprintln!("Find in this: {}",  words);
                 break;
             }else{
                 eprintln!("No solution found for boardsize {}", boardsize);
