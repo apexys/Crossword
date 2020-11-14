@@ -1,16 +1,16 @@
 mod random_iter;
 use random_iter::RandomIter;
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 #[derive(Copy, Clone, Debug)]
 struct PlacedWord<'a>{
-    word: &'a str,
+    word: &'a [char],
     x: usize,
     y: usize,
     direction_is_right: bool
 }
 
 impl<'a> PlacedWord<'a>{
-    pub fn new<'b>(word: &'b str, x: usize, y: usize, direction: bool) -> PlacedWord<'b>{
+    pub fn new<'b>(word: &'b [char], x: usize, y: usize, direction: bool) -> PlacedWord<'b>{
         PlacedWord{
             word,
             x,
@@ -19,7 +19,7 @@ impl<'a> PlacedWord<'a>{
         }
     }
 
-    pub fn letter_at_position(&self, x: usize, y: usize) -> Option<&str>{
+    pub fn letter_at_position(&self, x: usize, y: usize) -> Option<char>{
         if self.direction_is_right{
             if self.y != y {
                 None
@@ -31,7 +31,7 @@ impl<'a> PlacedWord<'a>{
                         None
                     }else{
                         let index = x - self.x;
-                        self.word.get(index .. index + 1)
+                        self.word.get(index).map(|c| *c)
                     }
                 }
             }
@@ -46,7 +46,7 @@ impl<'a> PlacedWord<'a>{
                         None
                     }else{
                         let index = y - self.y;
-                        self.word.get(index .. index + 1)
+                        self.word.get(index).map(|c| *c)
                     }
                 }
             }
@@ -144,6 +144,7 @@ impl<'a> PlacedWord<'a>{
 struct Board<'a>{
     x_size: usize,
     y_size: usize,
+    board: SmallVec<[Option<char>; 512]>,
     placed_words: SmallVec<[PlacedWord<'a>;20]>
 }
 
@@ -152,7 +153,22 @@ impl<'a> Board<'a>{
         Board{
             x_size,
             y_size,
+            board: smallvec![None; x_size * y_size],
             placed_words: SmallVec::new()
+        }
+    }
+
+    pub fn add_word(&mut self, word: PlacedWord<'a>){
+        self.placed_words.push(word);
+        let word = &self.placed_words[self.placed_words.len() - 1];
+        if word.direction_is_right{
+            for x in word.x .. word.x + word.len(){
+                self.board[x + (self.y_size * word.y)] = word.letter_at_position(x, word.y);
+            }
+        }else{
+            for y in word.y .. word.y + word.len(){
+                self.board[word.x + (self.y_size * y)] = word.letter_at_position(word.x, y);
+            }
         }
     }
 
@@ -178,7 +194,7 @@ impl<'a> Board<'a>{
                     }
                 }
                 return None
-            }).map(|c| c.unwrap_or("_")).collect::<String>();
+            }).map(|c| c.unwrap_or('_')).collect::<String>();
             result.push(line.clone());
         }
         result
@@ -187,7 +203,7 @@ impl<'a> Board<'a>{
 
 
 
-fn try_configuration<'a>(words: &[&'a str], words_start: usize, board: Board<'a>) -> Option<Board<'a>>{
+fn try_configuration<'a>(words: &[&'a [char]], words_start: usize, board: Board<'a>) -> Option<Board<'a>>{
     if words_start >= words.len(){
         Some(board)
     }else{
@@ -217,8 +233,12 @@ fn main() {
         let handle = std::fs::File::open(filename).expect("Could not open file!");
         let reader = std::io::BufReader::new(handle);
         let words: Vec<String> = reader.lines().map(|l| l.expect("Error reading file")).collect();
-        let uppercase: Vec<String> = words.into_iter().map(|w| w.trim().to_uppercase()).filter(|w|w.len() > 0).collect();
-        let refs: Vec<&str> = uppercase.iter().map(|s| s.as_str()).collect();
+        let uppercase: Vec<Vec<char>> = words.into_iter()
+            .map(|w| w.trim().to_uppercase())
+            .filter(|w|w.len() > 0)
+            .map(|w| w.chars().collect::<Vec<_>>())
+            .collect();
+        let refs: Vec<&[char]> = uppercase.iter().map(|s| s.as_ref()).collect();
         for boardsize in 1 .. 26{
             let board = Board::new(boardsize, boardsize);
             let result = try_configuration(&refs,0, board);
