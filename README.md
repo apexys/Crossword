@@ -46,9 +46,9 @@ ___LR_H_____
 
 I think these are places where we could optimize:
 
-- [*] Limit allowable letters to A-Z and use u8 to store them (normal cmp instead of memcmp)
-- [*] Add a 2dim-Array to the board and cache where which letter is to make collision detection faster
-- [*] Kick out PlacedWord, inline it completely into board
+- [x] Limit allowable letters to A-Z and use u8 to store them (normal cmp instead of memcmp)
+- [x] Add a 2dim-Array to the board and cache where which letter is to make collision detection faster
+- [x] Kick out PlacedWord, inline it completely into board
 - [ ] Maybe use an intelligent search algorithm where positions in the board are tried first if they have the same letter as one of the letters in the current word
 
 All in all, this is already pretty optimized.
