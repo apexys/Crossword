@@ -12,7 +12,7 @@ First argument controls what wordlist (one word per line, please no special char
 This currently takes an eternity for more than about 10 words.
 
 ## Output
-
+```
 SBOGCELLBVYF
 YCMRCBPLANTT
 HBEVOLUTIONF
@@ -41,7 +41,7 @@ ___IA_AEE___
 ___MT_NY____
 ___AO_C_____
 ___LR_H_____
-
+```
 ## Optimization
 
 I think these are places where we could optimize:
