@@ -2,6 +2,8 @@
 
 mod random_iter;
 use random_iter::RandomIter;
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 use smallvec::{smallvec, SmallVec};
 #[derive(Copy, Clone, Debug)]
 struct PlacedWord<'a>{
@@ -221,6 +223,22 @@ impl<'a> Board<'a>{
         }
         result
     }
+
+    pub fn print_filled(&self, charset: &[char]) -> Vec<String>{
+        let mut result = Vec::new();
+        for y in 0 .. self.y_size{
+            let line = (0 .. self.x_size).into_iter().map(|x| {
+                for w in self.placed_words.iter(){
+                    if let Some(char) = w.letter_at_position(x, y){
+                        return Some(char)
+                    }
+                }
+                return None
+            }).map(|c| c.unwrap_or(*charset.choose(&mut thread_rng()).unwrap_or(&'_'))).collect::<String>();
+            result.push(line.clone());
+        }
+        result
+    }
 }
 
 
@@ -276,13 +294,19 @@ fn main() {
             let result = try_configuration(&refs,0, board);
             if let Some(board) = result{
                 eprintln!("Solution found for boardsize {}", boardsize);
+                let lines = board.print_filled(&charset[..]);
+                for l in lines{
+                    println!("{}", l);
+                }
+                println!();
+                let words = uppercase.iter().map(|w| w.iter().collect::<String>()).fold_first(|prev, next| prev + ", " + &next).unwrap();
+                println!("Find in this: {}",  words);
+                println!();
+                println!("Solution:");
                 let lines = board.print();
                 for l in lines{
                     println!("{}", l);
                 }
-                eprintln!();
-                let words = uppercase.iter().map(|w| w.iter().collect::<String>()).fold_first(|prev, next| prev + ", " + &next).unwrap();
-                eprintln!("Find in this: {}",  words);
                 break;
             }else{
                 eprintln!("No solution found for boardsize {}", boardsize);
