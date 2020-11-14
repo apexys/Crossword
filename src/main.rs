@@ -176,10 +176,30 @@ impl<'a> Board<'a>{
         if word.x + word.len() > self.x_size || word.y + word.len() > self.y_size{
             false
         }else{
-            if self.placed_words.iter().any(|w| w.intersects_incorrectly(word)){
-                false
+            if word.direction_is_right{
+                for x in word.x .. word.x + word.len(){
+                    match (self.board[x + (self.y_size * word.y)], word.letter_at_position(x, word.y)){
+                        (Some(a), Some(b)) => {
+                            if a != b{
+                                return false;
+                            }
+                        },
+                        _ => ()
+                    }
+                }
+                return true;
             }else{
-                true
+                for y in word.y .. word.y + word.len(){
+                    match (self.board[word.x + (self.y_size * y)], word.letter_at_position(word.x, y)){
+                        (Some(a), Some(b)) => {
+                            if a != b{
+                                return false;
+                            }
+                        },
+                        _ => ()
+                    }
+                }
+                return true;
             }
         }
     }
