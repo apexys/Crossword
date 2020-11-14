@@ -5,185 +5,43 @@ use random_iter::RandomIter;
 use rand::thread_rng;
 use rand::seq::SliceRandom;
 use smallvec::{smallvec, SmallVec};
-#[derive(Copy, Clone, Debug)]
-struct PlacedWord<'a>{
-    word: &'a [char],
-    x: usize,
-    y: usize,
-    direction_is_right: bool
-}
-
-impl<'a> PlacedWord<'a>{
-    pub fn new<'b>(word: &'b [char], x: usize, y: usize, direction: bool) -> PlacedWord<'b>{
-        PlacedWord{
-            word,
-            x,
-            y,
-            direction_is_right: direction
-        }
-    }
-
-    pub fn letter_at_position(&self, x: usize, y: usize) -> Option<char>{
-        if self.direction_is_right{
-            if self.y != y {
-                None
-            }else{
-                if self.x > x {
-                    None
-                }else{
-                    if self.x + self.len() < x{
-                        None
-                    }else{
-                        let index = x - self.x;
-                        self.word.get(index).map(|c| *c)
-                    }
-                }
-            }
-        }else{
-            if self.x != x {
-                None
-            }else{
-                if self.y > y {
-                    None
-                }else{
-                    if self.y + self.len() < y{
-                        None
-                    }else{
-                        let index = y - self.y;
-                        self.word.get(index).map(|c| *c)
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn len(&self)->usize{
-        self.word.len()
-    }
-
-    pub fn intersects_incorrectly<'b>(&'a self, other: PlacedWord<'b>) -> bool{
-        match (self.direction_is_right, other.direction_is_right){
-            (true, true) => { //Both words point right
-                if self.y != other.y { //Words on different lines
-                    false
-                }else{
-                    if self.x + self.len() < other.x{ //Words after each other
-                        false
-                    }else{
-                        for x in self.x .. self.x + self.len(){
-                            match (self.letter_at_position(x, self.y), other.letter_at_position(x, self.y)){
-                                (Some(a), Some(b)) => {
-                                    if a != b {
-                                        return true;
-                                    }
-                                },
-                                _ => ()
-                            }
-                        }
-                        false
-                    }
-                }
-            },
-            (false, false) => { //Both words point down
-                if self.x != other.x { //Words on different columns
-                    false
-                }else{
-                    if self.y + self.len() < other.y{ //Words after each other
-                        false
-                    }else{
-                        for y in self.y .. self.y + self.len(){
-                            match (self.letter_at_position(self.x, y), other.letter_at_position(self.x, y)){
-                                (Some(a), Some(b)) => {
-                                    if a != b {
-                                        return true;
-                                    }
-                                },
-                                _ => ()
-                            }
-                        }
-                        false
-                    }
-                }
-            },
-            (true, false) => { //One right, one down
-                if other.x < self.x || other.x > self.x + self.len(){
-                    false
-                }else{
-                    let x = other.x;
-                    let y = self.y;
-                    match (self.letter_at_position(x, y), other.letter_at_position(x, y)){
-                        (Some(a), Some(b)) => {
-                            if a != b {
-                                return true;
-                            }
-                        },
-                        _ => ()
-                    }
-                    false
-                }
-            },
-            (false, true) => { //One right, one down
-                if self.x < other.x || self.x > other.x + other.len(){
-                    false
-                }else{
-                    let x = self.x;
-                    let y = other.y;
-                    match (self.letter_at_position(x, y), other.letter_at_position(x, y)){
-                        (Some(a), Some(b)) => {
-                            if a != b {
-                                return true;
-                            }
-                        },
-                        _ => ()
-                    }
-                    false
-                }
-            }
-        }
-
-    }
-}
 
 #[derive(Clone, Debug)]
-struct Board<'a>{
+struct Board{
     x_size: usize,
     y_size: usize,
     board: SmallVec<[Option<char>; 512]>,
-    placed_words: SmallVec<[PlacedWord<'a>;20]>
 }
 
-impl<'a> Board<'a>{
-    pub fn new(x_size: usize, y_size: usize) -> Board<'a>{
+impl Board{
+    pub fn new(x_size: usize, y_size: usize) -> Board{
         Board{
             x_size,
             y_size,
-            board: smallvec![None; x_size * y_size],
-            placed_words: SmallVec::new()
+            board: smallvec![None; x_size * y_size]
         }
     }
 
-    pub fn add_word(&mut self, word: PlacedWord<'a>){
-        self.placed_words.push(word);
-        let word = &self.placed_words[self.placed_words.len() - 1];
-        if word.direction_is_right{
-            for x in word.x .. word.x + word.len(){
-                self.board[x + (self.y_size * word.y)] = word.letter_at_position(x, word.y);
+    pub fn add_word(&mut self, word: &[char], word_x: usize, word_y: usize, direction_is_right: bool){
+        if direction_is_right{
+            for x in word_x .. word_x + word.len(){
+                self.board[x + (self.y_size * word_y)] = Some(word[x - word_x]);
             }
         }else{
-            for y in word.y .. word.y + word.len(){
-                self.board[word.x + (self.y_size * y)] = word.letter_at_position(word.x, y);
+            for y in word_y .. word_y + word.len(){
+                self.board[word_x + (self.y_size * y)] = Some(word[y - word_y]);
             }
         }
     }
 
-    pub fn word_fits(&self, word: PlacedWord) -> bool{
-        if word.x + word.len() > self.x_size || word.y + word.len() > self.y_size{
+    pub fn word_fits(&self, word: &[char], word_x: usize, word_y: usize, direction_is_right: bool) -> bool{
+        if word_x + word.len() > self.x_size || word_y + word.len() > self.y_size{
             false
         }else{
-            if word.direction_is_right{
-                for x in word.x .. word.x + word.len(){
-                    match (self.board[x + (self.y_size * word.y)], word.letter_at_position(x, word.y)){
-                        (Some(a), Some(b)) => {
+            if direction_is_right{
+                for x in word_x .. word_x + word.len(){
+                    match (self.board[x + (self.y_size * word_y)], word.get(x - word_x)){
+                        (Some(a), Some(&b)) => {
                             if a != b{
                                 return false;
                             }
@@ -193,9 +51,9 @@ impl<'a> Board<'a>{
                 }
                 return true;
             }else{
-                for y in word.y .. word.y + word.len(){
-                    match (self.board[word.x + (self.y_size * y)], word.letter_at_position(word.x, y)){
-                        (Some(a), Some(b)) => {
+                for y in word_y .. word_y + word.len(){
+                    match (self.board[word_x + (self.y_size * y)], word.get(y - word_y)){
+                        (Some(a), Some(&b)) => {
                             if a != b{
                                 return false;
                             }
@@ -212,13 +70,8 @@ impl<'a> Board<'a>{
         let mut result = Vec::new();
         for y in 0 .. self.y_size{
             let line = (0 .. self.x_size).into_iter().map(|x| {
-                for w in self.placed_words.iter(){
-                    if let Some(char) = w.letter_at_position(x, y){
-                        return Some(char)
-                    }
-                }
-                return None
-            }).map(|c| c.unwrap_or('_')).collect::<String>();
+                self.board[x + (self.y_size * y)].unwrap_or('_')
+            }).collect::<String>();
             result.push(line.clone());
         }
         result
@@ -228,13 +81,8 @@ impl<'a> Board<'a>{
         let mut result = Vec::new();
         for y in 0 .. self.y_size{
             let line = (0 .. self.x_size).into_iter().map(|x| {
-                for w in self.placed_words.iter(){
-                    if let Some(char) = w.letter_at_position(x, y){
-                        return Some(char)
-                    }
-                }
-                return None
-            }).map(|c| c.unwrap_or(*charset.choose(&mut thread_rng()).unwrap_or(&'_'))).collect::<String>();
+                self.board[x + (self.y_size * y)].unwrap_or(*charset.choose(&mut thread_rng()).unwrap_or(&'_'))
+            }).collect::<String>();
             result.push(line.clone());
         }
         result
@@ -243,7 +91,7 @@ impl<'a> Board<'a>{
 
 
 
-fn try_configuration<'a>(words: &[&'a [char]], words_start: usize, board: Board<'a>) -> Option<Board<'a>>{
+fn try_configuration(words: &[&[char]], words_start: usize, board: Board) -> Option<Board>{
     if words_start >= words.len(){
         Some(board)
     }else{
@@ -251,10 +99,9 @@ fn try_configuration<'a>(words: &[&'a [char]], words_start: usize, board: Board<
         for x in RandomIter::from(0 .. board.x_size){
             for y in RandomIter::from(0 .. board.y_size){
                 for &dir in RandomIter::from(&[false, true][..]){
-                    let wordconf = PlacedWord::new(current_word, x,y,dir);
-                    if board.word_fits(wordconf){
+                    if board.word_fits(current_word, x,y,dir){
                         let mut new_board =board.clone();
-                        new_board.add_word(wordconf);
+                        new_board.add_word(current_word, x, y, dir);
                         if let Some(board) = try_configuration(words, words_start + 1, new_board){
                             return Some(board);
                         }
@@ -282,7 +129,11 @@ fn main() {
             eprintln!("No words in file!");
             return;
         }
-        let min_board_size = uppercase.iter().map(|s| s.len()).max().unwrap_or(1);
+        let mut min_board_size = uppercase.iter().map(|s| s.len()).max().unwrap_or(1);
+        let override_board_size: Option<u8> = std::env::args().nth(2).map(|a| a.parse().ok()).flatten();
+        if let Some(override_min_board_size) = override_board_size{
+            min_board_size = min_board_size.max(override_min_board_size as usize);
+        }
         let mut charset: Vec<char> = uppercase.iter().flatten().copied().collect();
         charset.sort_unstable();
         charset.dedup();
